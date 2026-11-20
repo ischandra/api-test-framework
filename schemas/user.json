@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "User",
+  "type": "object",
+  "required": ["id", "name", "email", "createdAt"],
+  "properties": {
+    "id": {"type": "integer", "minimum": 1},
+    "name": {"type": "string", "minLength": 1, "maxLength": 100},
+    "email": {"type": "string", "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"},
+    "age": {"type": ["integer", "null"], "minimum": 0, "maximum": 150},
+    "createdAt": {"type": "string"}
+  },
+  "additionalProperties": false
+}

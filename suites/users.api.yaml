@@ -1,0 +1,152 @@
+# Users API - full CRUD flow, negative tests and data-driven tests.
+# Steps run top to bottom; 'save' passes values (token, ids) to later steps.
+name: Users API
+tags: [users, regression]
+
+variables:                          # rendered once per run -> same values across steps
+  newName: "{{$randomFullName}}"
+  newEmail: "{{$uniqueEmail}}"      # unique per run: safe to re-run against a persistent environment
+
+defaults:
+  headers:
+    Accept: application/json
+  expect:
+    max_time_ms: 3000               # status defaults to 2xx when not given
+
+tests:
+  - name: Health check
+    tags: [smoke]
+    get: /health
+    expect:
+      json:
+        $.status: UP
+
+  - name: Login
+    tags: [smoke]
+    post: /auth/login
+    json:
+      username: "{{username}}"
+      password: "{{password}}"
+    expect:
+      status: 200
+      json:
+        $.token: {type: string, not_empty: true}
+        $.expiresIn: {gt: 0}
+    save:
+      token: $.token
+
+  - name: Create user
+    post: /users
+    auth: {bearer: "{{token}}"}
+    json:
+      name: "{{newName}}"
+      email: "{{newEmail}}"
+      age: "{{$int(18, 90)}}"       # whole-string placeholder keeps the int type
+    expect:
+      status: 201
+      headers:
+        Location: {regex: "^/users/\\d+$"}
+      json:
+        $.id: {type: integer}
+        $.email: "{{newEmail}}"
+      schema: ../schemas/user.json
+    save:
+      userId: $.id
+
+  - name: Get created user
+    get: /users/{{userId}}
+    expect:
+      status: 200
+      json:
+        $.name: "{{newName}}"
+      schema: ../schemas/user.json
+
+  - name: List contains created user
+    get: /users
+    params: {limit: 1000}
+    expect:
+      json:
+        $.items[*].id: {contains: "{{userId}}"}
+        $.items.length: {gte: 1}
+
+  - name: Duplicate email is rejected
+    post: /users
+    auth: {bearer: "{{token}}"}
+    json: {name: Someone Else, email: "{{newEmail}}"}
+    expect:
+      status: 409
+
+  - name: Create user requires auth
+    tags: [security]
+    post: /users
+    json: {name: "{{$randomFullName}}", email: "{{$randomEmail}}"}
+    expect:
+      status: 401
+
+  # Data-driven negative tests: one test per case, each with fresh synthetic data.
+  - name: Create user validation
+    tags: [negative]
+    post: /users
+    auth: {bearer: "{{token}}"}
+    json: "{{payload}}"
+    cases:
+      - id: missing-name
+        payload: {email: "{{$randomEmail}}"}
+        field: name
+      - id: name-too-long
+        payload: {name: "{{$string(101)}}", email: "{{$randomEmail}}"}
+        field: name
+      - id: negative-age
+        payload: {name: "{{$randomFullName}}", email: "{{$randomEmail}}", age: -1}
+        field: age
+      - id: age-as-string
+        payload: {name: "{{$randomFullName}}", email: "{{$randomEmail}}", age: "30"}
+        field: age
+    expect:
+      status: 400
+      json:
+        $.error: validation failed
+        $.details: {contains: "{{field}}"}
+
+  # Same idea, with cases from a CSV file (great for business-owned test data).
+  - name: Create user validation (CSV)
+    tags: [negative]
+    post: /users
+    auth: {bearer: "{{token}}"}
+    json: {name: "{{name}}", email: "{{email}}"}
+    data_file: ../data/invalid-users.csv
+    expect:
+      status: 400
+      json:
+        $.details: {contains: "{{expected_field}}"}
+
+  - name: Bulk create with synthetic data
+    post: /users
+    auth: {bearer: "{{token}}"}
+    repeat: 3                       # 3 tests, new random data each time
+    json:
+      name: "{{$randomFullName}}"
+      email: "{{$uniqueEmail}}"
+    expect:
+      status: 201
+
+  - name: Update user
+    put: /users/{{userId}}
+    auth: {bearer: "{{token}}"}
+    json: {age: 42}
+    expect:
+      json:
+        $.age: 42
+
+  - name: Delete user
+    delete: /users/{{userId}}
+    auth: {bearer: "{{token}}"}
+    expect:
+      status: 204
+
+  - name: Deleted user is gone
+    get: /users/{{userId}}
+    expect:
+      status: 404
+      json:
+        $.error: not found

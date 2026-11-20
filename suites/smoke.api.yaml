@@ -1,0 +1,12 @@
+# Direct API URLs: the quickest way to cover endpoints.
+# Each entry is a GET expecting a 2xx unless you say otherwise.
+name: Smoke
+defaults:
+  expect:
+    max_time_ms: 2000
+smoke:
+  - /health
+  - /users
+  - url: /users/999999
+    status: 404
+  - HEAD /health

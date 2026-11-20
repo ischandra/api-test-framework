@@ -1,0 +1,4 @@
+# Bundled demo API: start it with `python -m apitest demo-server`
+baseUrl: http://localhost:8000
+username: demo
+password: demo-pass

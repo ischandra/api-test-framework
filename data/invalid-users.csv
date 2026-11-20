@@ -1,0 +1,4 @@
+id,name,email,expected_field
+blank-name,,valid.user@example.com,name
+bad-email,Valid Name,not-an-email,email
+missing-tld,Valid Name,user@example,email

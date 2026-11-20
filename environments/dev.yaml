@@ -1,0 +1,7 @@
+# Example real environment. Secrets come from OS environment variables
+# (Jenkins credentials, CI secrets) - never commit them here.
+#   ${NAME}            -> value of $NAME (warning in the report header if unset)
+#   ${NAME:-default}   -> value of $NAME, or "default"
+baseUrl: ${API_BASE_URL:-https://dev-api.example.com}
+username: ${API_USERNAME}
+password: ${API_PASSWORD}
