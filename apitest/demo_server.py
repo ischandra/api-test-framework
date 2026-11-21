@@ -5,7 +5,7 @@
 Endpoints:
   GET    /health
   POST   /auth/login        {"username": "demo", "password": "demo-pass"} -> {"token": ...}
-  GET    /users?limit=N
+  GET    /users?limit=N      (1-1000, default 50)
   POST   /users             (Bearer token) {"name", "email", "age"?} -> 201 / 400 / 401 / 409
   GET    /users/{id}        -> 200 / 404
   PUT    /users/{id}        (Bearer token)
@@ -101,7 +101,11 @@ def make_handler(store: _Store):
             if route == "/health":
                 return self._send(200, {"status": "UP", "time": datetime.now(timezone.utc).isoformat()})
             if route == "/users":
-                limit = int((q.get("limit") or ["50"])[0])
+                raw = (q.get("limit") or ["50"])[0]
+                if not re.fullmatch(r"\d+", raw) or not 1 <= int(raw) <= 1000:
+                    return self._send(400, {"error": "validation failed",
+                                            "details": {"limit": "must be an integer between 1 and 1000"}})
+                limit = int(raw)
                 with store.lock:
                     items = list(store.users.values())
                 return self._send(200, {"items": items[:limit], "total": len(items)})

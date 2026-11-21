@@ -100,3 +100,9 @@ def test_cli_import_postman_round_trip(tmp_path, demo_url):
                         "-q", "-p", "no:cacheprovider"], cwd=tmp_path, env=env, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout
     assert "7 passed" in r.stdout
+
+
+@pytest.mark.parametrize("limit,status", [("10", 200), ("1000", 200), ("0", 400), ("1001", 400), ("abc", 400), ("7.5", 400)])
+def test_demo_api_validates_limit(demo_url, limit, status):
+    import requests
+    assert requests.get(f"{demo_url}/users", params={"limit": limit}, timeout=5).status_code == status
